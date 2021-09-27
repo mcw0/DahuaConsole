@@ -616,7 +616,7 @@ class DebugConsole(Servers):
             return
 
         if cmd[1] == 'object':
-            self.dh.InstanceService(methodName="", listAll=True)
+            self.dh.instance_service(method_name="", list_all=True)
 
         elif cmd[1] == 'test':
             object_methods = [
