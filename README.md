@@ -4,6 +4,11 @@
 - Bugs: Indeed
 - TODO: Lots of stuff
 
+[Install requirements]
+```text
+sudo pip3 install -r requirements.txt
+```
+
 [Arguments]
 ```text
   -h, --help            show this help message and exit
