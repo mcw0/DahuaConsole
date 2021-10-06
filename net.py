@@ -487,7 +487,8 @@ sock.close()
         log.info("Remote Model: {}, Class: {}, Time: {}".format(
             self.DeviceType,
             self.DeviceClass,
-            dh_data.get('global.getCurrentTime').get('params').get('time'),
+            dh_data.get('global.getCurrentTime').get('params').get('time')
+            if dh_data.get('global.getCurrentTime') else '(null)',
         ))
 
         if self.args.dump:
