@@ -39,6 +39,12 @@ sudo pip3 install -r requirements.txt
 ---
 [Release]
 
+[Update]
+
+2021-10-07
+
+Details here: https://github.com/mcw0/PoC/blob/master/Dahua%20authentication%20bypass.txt
+
 2021-10-06
 
 
