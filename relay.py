@@ -193,7 +193,7 @@ class DahuaHttp(object):
         """Set SessionID Cookie during login"""
         if login and self.remote.cookies.get('DWebClientSessionID') is None:
             self.remote.cookies.set('username', query_args.get('params').get('userName'))
-            self.remote.cookies.set('DWebClientSessionID', dh_json.get('session'))
+            self.remote.cookies.set('DWebClientSessionID', str(dh_json.get('session')))
 
         return dh_data
 
