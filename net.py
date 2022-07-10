@@ -439,64 +439,66 @@ sock.close()
                 else:
                     return False
 
-        query_args = {
-            "method": "userManager.getActiveUserInfoAll",
-            "params": {
-            },
-        }
+        # Old devices fail and close connection
+        if logon != 'old_3des':
+            query_args = {
+                "method": "userManager.getActiveUserInfoAll",
+                "params": {
+                },
+            }
 
-        dh_data = self.send_call(query_args)
+            dh_data = self.send_call(query_args)
 
-        users = '{}'.format(help_msg('Active Users'))
-        if dh_data.get('params').get('users') is not None:
-            for user in dh_data.get('params').get('users'):
-                users += '{}@{} since {} with "{}" (Id: {}) \n'.format(
-                    user.get('Name'),
-                    user.get('ClientAddress'),
-                    user.get('LoginTime'),
-                    user.get('ClientType'),
-                    user.get('Id'))
-        else:
-            users += 'None'
-        log.info(users)
+            users = '{}'.format(help_msg('Active Users'))
+            if dh_data.get('params').get('users') is not None:
+                for user in dh_data.get('params').get('users'):
+                    users += '{}@{} since {} with "{}" (Id: {}) \n'.format(
+                        user.get('Name'),
+                        user.get('ClientAddress'),
+                        user.get('LoginTime'),
+                        user.get('ClientType'),
+                        user.get('Id'))
+            else:
+                users += 'None'
+            log.info(users)
 
-        query_args = {
-            "method": "magicBox.getDeviceType",
-            "params": None,
-        }
-        self.send_call(query_args, multicall=True)
+            query_args = {
+                "method": "magicBox.getDeviceType",
+                "params": None,
+            }
+            self.send_call(query_args, multicall=True)
 
-        """ Classes: NVR, IPC, VTO, VTH, DVR... etc. """
-        query_args = {
-            "method": "magicBox.getDeviceClass",
-            "params": None,
-        }
-        self.send_call(query_args, multicall=True)
+            """ Classes: NVR, IPC, VTO, VTH, DVR... etc. """
+            query_args = {
+                "method": "magicBox.getDeviceClass",
+                "params": None,
+            }
+            self.send_call(query_args, multicall=True)
 
-        query_args = {
-            "method": "global.getCurrentTime",
-            "params": None,
-        }
-        dh_data = self.send_call(query_args, multicall=True, multicallsend=True)
+            query_args = {
+                "method": "global.getCurrentTime",
+                "params": None,
+            }
+            dh_data = self.send_call(query_args, multicall=True, multicallsend=True)
 
-        self.DeviceClass = \
-            dh_data.get('magicBox.getDeviceClass').get('params').get('type') \
-            if dh_data.get('magicBox.getDeviceClass').get('result') else '(null)'
-        self.DeviceType = \
-            dh_data.get('magicBox.getDeviceType').get('params').get('type')\
-            if dh_data.get('magicBox.getDeviceType').get('result') else '(null)'
-        if dh_data.get('global.getCurrentTime').get('params'):
-            remote_time = dh_data.get('global.getCurrentTime').get('params').get('time')
-        elif dh_data.get('global.getCurrentTime').get('result'):
-            remote_time = dh_data.get('global.getCurrentTime').get('result')
-        else:
-            remote_time = '(null)'
+            self.DeviceClass = \
+                dh_data.get('magicBox.getDeviceClass').get('params').get('type') \
+                if dh_data and dh_data.get('magicBox.getDeviceClass').get('result') else '(null)'
+            self.DeviceType = \
+                dh_data.get('magicBox.getDeviceType').get('params').get('type')\
+                if dh_data and dh_data.get('magicBox.getDeviceType').get('result') else '(null)'
+            if dh_data and dh_data.get('global.getCurrentTime').get('params'):
+                remote_time = dh_data.get('global.getCurrentTime').get('params').get('time')
+            elif dh_data and dh_data.get('global.getCurrentTime').get('result'):
+                remote_time = dh_data.get('global.getCurrentTime').get('result')
+            else:
+                remote_time = '(null)'
 
-        log.info("Remote Model: {}, Class: {}, Time: {}".format(
-            self.DeviceType,
-            self.DeviceClass,
-            remote_time
-        ))
+            log.info("Remote Model: {}, Class: {}, Time: {}".format(
+                self.DeviceType,
+                self.DeviceClass,
+                remote_time
+            ))
 
         if self.args.dump:
             return True
@@ -2107,7 +2109,6 @@ sock.close()
     # 3DES/DVRIP Login function
     #
     def dahua_dvrip_login(self, username=None, password=None, logon=None):
-
         login = log.progress(color('Login', YELLOW))
         dh_data = ''
         dh_realm = None
@@ -2126,17 +2127,23 @@ sock.close()
             if not dh_data:
                 return None
 
-            """ all characters above 8 will be stripped """
-            self.header = \
-                p32(0xa0000000, endian='big') + p32(0x0) + dh_data.get('username') + \
-                dh_data.get('password') + p64(0x050200010000a1aa, endian='big')
+            if logon == 'old_3des':
+                """ all characters above 8 will be stripped """
+                self.header = \
+                    p32(0xa0050060, endian='big') + p32(0x0) + dh_data.get('username') + \
+                    dh_data.get('password') + p64(0x040200010000a1aa, endian='big')
+            else:
+                """ all characters above 8 will be stripped """
+                self.header = \
+                    p32(0xa0000000, endian='big') + p32(0x0) + dh_data.get('username') + \
+                    dh_data.get('password') + p64(0x050200010000a1aa, endian='big')
 
             try:
                 dh_data = self.p2p(None)
             except EOFError:
                 return False
-            if not dh_data:
-                return None
+            # if not dh_data:
+            #     return None
 
         elif self.proto == 'dvrip':
 

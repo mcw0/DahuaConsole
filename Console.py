@@ -717,6 +717,7 @@ def main():
         'rtsp',
         'basic',
         'old_digest',
+        'old_3des',
         'gui'
     ]
     dump_choices = [
@@ -789,7 +790,7 @@ def main():
             return False
     """
     if dargs.logon in logon_choices:
-        if dargs.proto not in ['dhip', 'http', 'https']:
+        if dargs.proto not in ['dhip', 'http', 'https', '3des']:
             dargs.proto = 'dhip'
         if dargs.logon in ['loopback', 'netkeyboard']:
             if not dargs.auth:
