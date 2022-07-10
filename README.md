@@ -42,9 +42,11 @@ sudo pip3 install -r requirements.txt
 [Update]
 2022-07-10
 
-Added 3des_old logon method for VTH1510CH running V2 software from 2016
-- Minor difference in the login packet data
-- Do not query device parameters on connect - will reset the connection
+- Added 3des_old logon method for VTH1510CH running V2 software from 2016
+  - Minor difference in the login packet data
+  - Do not query device parameters on connect - will reset the connection
+- Added `--restore config-file.json`
+  - Loads json configuration file or parts thereof.
 
 Example:
 

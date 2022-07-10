@@ -25,6 +25,10 @@ class DebugConsole(Servers):
             self.dump()
             return
 
+        if self.dargs.restore:
+            self.restore(self.dargs.restore)
+            return
+
         self.main_console()
 
     #
@@ -293,7 +297,33 @@ class DebugConsole(Servers):
             memory = memory / 1024
         log.info("Memory usage: {}".format(size(memory)))
 
-    def dump(self):
+    def set_config(self, key, table):
+        method_name = 'configManager'
+        self.dh.instance_service(method_name, start=True)
+        object_id = self.dh.instance_service(method_name, pull='object')
+
+        query_args = {
+            "method": "configManager.setConfig",
+            "params": {
+                "table": table,
+                "name": key,
+            },
+            "object": object_id,
+        }
+        log.info(f"Setting {key}")
+        dh_data = self.dh.send_call(query_args)
+        if not dh_data:
+            return
+        print(json.dumps(dh_data, indent=4))
+
+    def restore(self, fd):
+        self.connect()
+        """ Restores configuration from json file"""
+        config = json.loads(fd.read())
+        for k, v in config['params']['table'].items():
+            self.set_config(k, v)
+
+    def connect(self):
         """ Handle the '--dump' options from command line """
 
         self.dhConsole = {}
@@ -318,6 +348,8 @@ class DebugConsole(Servers):
             self.dh.dh_test('test')
             return None
 
+    def dump(self):
+        self.connect()
         if self.dargs.dump == 'config':
             self.dh.config_members("{} {}".format("config", self.dargs.dump_argv if self.dargs.dump_argv else "all"))
             self.dh.logout()
@@ -756,6 +788,9 @@ def main():
     )
     parser.add_argument(
         '--dump', required=False, default=False, type=str, choices=dump_choices, help='Dump remote config')
+    parser.add_argument(
+        '--restore', required=False, default=False, type=argparse.FileType('r'),
+        help='Restores device config from json config')
     parser.add_argument('--dump_argv', required=False, default=None, type=str, help='ARGV to --dump')
     parser.add_argument('--test', required=False, default=False, action='store_true', help='test w/o login attempt')
     parser.add_argument(
