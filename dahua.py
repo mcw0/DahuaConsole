@@ -1175,6 +1175,28 @@ class DahuaFunctions(Network):
                     )
                 )
 
+    def delete_config(self, msg):
+        cmd = msg.split()
+        if len(cmd) != 2:
+            log.info('{}'.format(help_all(msg=msg, usage='delete-config member')))
+
+        key = cmd[1]
+        method_name = 'configManager'
+        self.instance_service(method_name, start=True)
+        object_id = self.instance_service(method_name, pull='object')
+        query_args = {
+            "method": "configManager.deleteConfig",
+            "params": {
+                "name": key,
+            },
+            "object": object_id,
+        }
+        log.info(f"Deleting member {key}")
+        dh_data = self.send_call(query_args)
+        if not dh_data:
+            return
+        print(json.dumps(dh_data, indent=4))
+
     def new_config(self, msg):
         """
         PoC for new non-existing configuration

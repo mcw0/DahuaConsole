@@ -40,6 +40,19 @@ sudo pip3 install -r requirements.txt
 [Release]
 
 [Update]
+2022-07-10
+
+- Added 3des_old logon method for VTH1510CH running V2 software from 2016
+  - Minor difference in the login packet data
+  - Do not query device parameters on connect - will reset the connection
+- Added `--restore config-file.json`
+  - Loads json configuration file or parts thereof.
+
+Example:
+
+`./Console.py --rhost 192.168.1.x --proto 3des --auth admin:admin  --logon old_3des --dump config`
+
+[Update]
 
 2021-10-07
 
