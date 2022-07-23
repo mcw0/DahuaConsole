@@ -1,3 +1,4 @@
+import requests
 from requests import packages
 from requests.packages import urllib3
 from requests.packages.urllib3 import exceptions
