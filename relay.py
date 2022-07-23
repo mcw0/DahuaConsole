@@ -111,7 +111,7 @@ class DahuaHttp(object):
         self.stream = None
 
         """ Most devices will use self-signed certificates, suppress any warnings """
-        requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+        packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
         self.remote = requests.Session()
 
