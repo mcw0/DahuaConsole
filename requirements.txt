@@ -1,7 +1,6 @@
-pwntools>=4.3.1
-ndjson>=0.3.1
-pycryptodome>=3.9.7
-tzlocal>=2.1
-pyOpenSSL>=19.1.0
-requests>=2.20.0
-pwn~=1.0
+ndjson==0.3.1
+pwn==1.0
+pwntools==4.4.0
+pycryptodome==3.15.0
+pyOpenSSL==22.0.0
+Requests==2.28.1
