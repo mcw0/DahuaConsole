@@ -4,10 +4,25 @@
 - Bugs: Indeed
 - TODO: Lots of stuff
 
-[Install requirements]
+> **Private modernised fork** of [mcw0/DahuaConsole](https://github.com/mcw0/DahuaConsole).
+> See "Fork changes (2026-11)" below.
+
+[Install]
 ```text
-sudo pip3 install -r requirements.txt
+# Recommended: isolated install, gives you the `dahua-console` command
+pipx install .
+
+# Or from source in a virtualenv
+python3 -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+dahua-console --help
+
+# Or run directly, as before
+pip install -r requirements.txt
+./Console.py --help
 ```
+
+Note: `--save` / `--multihost` read and write `dhConsole.json` in the **current directory**.
 
 [Arguments]
 ```text
@@ -24,7 +39,7 @@ sudo pip3 install -r requirements.txt
   --dump {config,service,device,discover,log,test}
                         Dump remote config
   --dump_argv DUMP_ARGV
-                        ARGV to --dump
+                        ARGV to --dump (log: entry count; discover: e.g. multicast)
   --test                test w/o login attempt
   --multihost           Connect hosts from "dhConsole.json"
   --save                Save host hash to "dhConsole.json"
@@ -37,6 +52,28 @@ sudo pip3 install -r requirements.txt
   --calls               Debug internal calls
 ```
 ---
+## Fork changes (2026-11)
+
+Bug fixes
+- `method_banned`: a missing comma merged `magicBox.config` and `global.login` into one string, so neither was actually blocked.
+- `dahua_dvrip_md5_hash`: with a password supplied, operator precedence dropped the `username:random:` prefix, so it disagreed with the saved-host path. **Needs confirming against a real DVRIP device.**
+- `--dump service` / `--dump device` / `--dump discover` called methods that no longer exist (`listService`, `getRemoteInfo`, `deviceDiscovery`) and crashed.
+- `--dump log` was rejected ("No such dump") because the handler checked for `dlog`; now takes an optional entry count via `--dump_argv`.
+- Every `--dump` and `--test` crashed with a traceback when the device was unreachable; `--test` on its own also ended in an exception.
+- `--auth` and `--relay` truncated passwords containing `:` (and `@` for relay).
+- Connecting crashed when firmware refused `userManager.getActiveUserInfoAll` (e.g. non-admin accounts).
+- `client_notify` only handled the first message of a batched packet and silently dropped the rest.
+- Interactive console's catch-all exception handler had been commented out, so one bad reply killed the session.
+- `binary_ip` / `unbinary_ip` swallowed Ctrl-C.
+
+Dependencies and modern Python
+- Removed the bogus `pwn~=1.0` requirement (an unrelated abandoned package), the unused `tzlocal`, and `ndjson`.
+- pyOpenSSL + pycryptodome replaced by `cryptography`; EC device certificates no longer crash `certificate`.
+- `requests.packages.urllib3` -> `urllib3`; `datetime.utcnow()` -> timezone-aware UTC.
+- Added `pyproject.toml` (`dahua-console`, `dahua-eventviewer` commands), pytest suite with known-answer hash vectors captured from the original code, ruff, and GitHub Actions CI (Python 3.9 / 3.11 / 3.13).
+
+Not changed: protocol logic, logon modes and the pwntools-based transport.
+
 [Release]
 
 [Update]

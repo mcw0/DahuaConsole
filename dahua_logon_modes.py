@@ -1,5 +1,5 @@
 from utils import *
-from datetime import datetime
+from datetime import datetime, timezone
 
 """ For Dahua DES/3DES """
 ENCRYPT = 0x00
@@ -221,7 +221,7 @@ def dahua_logon(logon=None, query_args=None, username=None, password=None, saved
 
     elif logon == 'onvif:digest':
         """ Always use UTC for 'created' """
-        created = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
+        created = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         """ Newer firmware has another REALM, can be retrieved from HTTP OPTIONS/RTSP call, see dahua_dhip_login() """
         dh_hash = dahua_digest_md5_hash(
             username=username, password=password, dh_realm=dh_realm, dh_random=dh_random,
@@ -239,7 +239,7 @@ def dahua_logon(logon=None, query_args=None, username=None, password=None, saved
 
     elif logon == 'rtsp':
         """ Always use UTC for created """
-        created = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
+        created = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         dh_hash = dahua_digest_md5_hash(
             username=username, password=password, dh_realm=dh_realm, dh_random=dh_random,
             saved_host=saved_host, created=created)
@@ -263,7 +263,7 @@ def dahua_logon(logon=None, query_args=None, username=None, password=None, saved
         """
 
         """ Always use UTC for created """
-        created = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
+        created = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         dh_hash = dahua_gen2_md5_hash(
             username=username, password=password, dh_realm=dh_realm, dh_random=dh_random,
             saved_host=saved_host, return_hash=True)
@@ -382,9 +382,11 @@ def basic_auth(username, password):
 def dahua_dvrip_md5_hash(dh_random=None, username=None, password=None, saved_host=None):
     """ Dahua (gen1) DVRIP random MD5 password hash """
 
+    # Previously the conditional expression bound loosest, so with a password supplied this hashed only
+    # gen1(password) and dropped the 'username:random:' prefix. Both paths now hash the same structure.
+    gen1 = saved_host.get('password').get('gen1') if password is None else dahua_gen1_hash(password)
     return hashlib.md5(
-        (username + ':' + dh_random + ':' + saved_host.get('password').get('gen1') if password is None else
-         dahua_gen1_hash(password)).encode('latin-1')
+        (username + ':' + dh_random + ':' + gen1).encode('latin-1')
     ).hexdigest().upper()
 
 

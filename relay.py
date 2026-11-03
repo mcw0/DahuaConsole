@@ -1,7 +1,6 @@
 import requests
-from requests import packages
-from requests.packages import urllib3
-from requests.packages.urllib3 import exceptions
+import urllib3
+from urllib3.exceptions import InsecureRequestWarning
 from pathlib import Path
 
 from utils import *
@@ -26,11 +25,10 @@ def init_relay(relay=None, rhost=None, rport=None, discover=False):
 
     try:
         proto = relay[0:relay.index('://')]
-        tmp = relay[len(proto)+3:].split('@')
-        relay_username = tmp[0].split(':')[0]
-        relay_password = tmp[0].split(':')[1]
-        relay_rhost = tmp[1].split(':')[0]
-        relay_rport = tmp[1].split(':')[1]
+        # rsplit/split with maxsplit so passwords containing '@' or ':' survive
+        tmp = relay[len(proto)+3:].rsplit('@', 1)
+        relay_username, relay_password = tmp[0].split(':', 1)
+        relay_rhost, relay_rport = tmp[1].rsplit(':', 1)
 
         """ Check if RPORT is valid """
         if not check_port(relay_rport):
@@ -112,7 +110,7 @@ class DahuaHttp(object):
         self.stream = None
 
         """ Most devices will use self-signed certificates, suppress any warnings """
-        requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+        urllib3.disable_warnings(InsecureRequestWarning)
 
         self.remote = requests.Session()
 
