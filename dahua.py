@@ -1,4 +1,5 @@
 import copy
+import re
 
 from pathlib import Path
 
@@ -2631,6 +2632,54 @@ class DahuaFunctions(Network):
 
     def dh_test(self, msg):
         return
+
+    def rpc(self, msg):
+        """
+        Call one remote RPC method and print the reply.
+        Read-only by default (get*/list*/is*/check*); other methods need --force. Banned methods are always refused.
+        Services that need an instance (factory.instance) are retried with one automatically.
+        """
+        cmd = msg.split(None, 2)
+
+        usage = {
+            "<service.method>": "[<JSON params>] (call one method and print the reply)",
+            "e.g.": "rpc devVideoAnalyse.getCaps {\"channel\":0}",
+        }
+        if len(cmd) < 2 or cmd[1] == '-h':
+            log.info('{}'.format(help_all(msg=msg, usage=usage)))
+            return True
+
+        method = cmd[1]
+        try:
+            params = json.loads(cmd[2]) if len(cmd) == 3 else None
+        except JSONDecodeError as e:
+            log.failure('[rpc] params must be JSON: {}'.format(e))
+            return False
+
+        verb = method.rsplit('.', 1)[-1]
+        if not re.match(r'(get|list|is|check)', verb) and not (self.args and self.args.force):
+            log.failure('[rpc] "{}" may change the device; restart with --force to allow it'.format(method))
+            return False
+        if self.method_banned(method):
+            return False
+
+        dh_data = self.send_call({"method": method, "params": params}, errorcodes=True)
+
+        # Some services only answer through an instance object; retry that way if the plain call failed
+        service = method.rsplit('.', 1)[0]
+        if (not dh_data or not dh_data.get('result')) and '.' in method \
+                and self.instance_service(service, start=True):
+            object_id = self.instance_service(service, pull='object')
+            if object_id:
+                dh_data = self.send_call(
+                    {"method": method, "params": params, "object": object_id}, errorcodes=True)
+            self.instance_service(service, stop=True)
+
+        if not dh_data:
+            log.failure('[rpc] {}: no reply'.format(method))
+            return False
+        print(json.dumps(dh_data, indent=4))
+        return True
 
     def user_manager(self, msg):
         """User management: only list users and show capabilities"""

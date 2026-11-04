@@ -72,6 +72,10 @@ Dependencies and modern Python
 - `requests.packages.urllib3` -> `urllib3`; `datetime.utcnow()` -> timezone-aware UTC.
 - Added `pyproject.toml` (`dahua-console`, `dahua-eventviewer` commands), pytest suite with known-answer hash vectors captured from the original code, ruff, and GitHub Actions CI (Python 3.9 / 3.11 / 3.13).
 
+New: `rpc` command (interactive) and `--dump rpc` (one-liner) call a single RPC method and print the reply,
+e.g. `--dump rpc --dump_argv 'devVideoAnalyse.getCaps {"channel":0}'`. Read-only methods only (get/list/is/check)
+unless `--force`; banned methods are always refused.
+
 Not changed: protocol logic, logon modes and the pwntools-based transport.
 
 [Release]

@@ -144,6 +144,10 @@ class DebugConsole(Servers):
                 'cmd': 'self.dh.reboot()',
                 'help': 'Try force reboot of remote',
             },
+            'rpc': {
+                'cmd': 'self.dh.rpc(msg)',
+                'help': 'Call one RPC method, read-only unless --force (-h for params)',
+            },
             'dh_test': {
                 'cmd': 'self.dh.dh_test(msg)',
                 'help': 'TEST function (-h for params)',
@@ -382,6 +386,11 @@ class DebugConsole(Servers):
             return None
         elif self.dargs.dump == 'test':
             self.dh.dh_test('test')
+            self.dh.logout()
+            return None
+        elif self.dargs.dump == 'rpc':
+            # e.g. --dump rpc --dump_argv 'devVideoAnalyse.getCaps {"channel":0}'
+            self.dh.rpc("rpc {}".format(self.dargs.dump_argv or "-h"))
             self.dh.logout()
             return None
         elif self.dargs.dump == 'log':
@@ -773,6 +782,7 @@ def main():
         'device',
         'discover',
         'log',
+        'rpc',
         'test'
     ]
 
