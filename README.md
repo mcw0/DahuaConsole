@@ -69,7 +69,7 @@ Dependencies and modern Python
 - Removed the bogus `pwn~=1.0` requirement (an unrelated abandoned package), the unused `tzlocal`, and `ndjson`.
 - pyOpenSSL + pycryptodome replaced by `cryptography`; EC device certificates no longer crash `certificate`.
 - `requests.packages.urllib3` -> `urllib3`; `datetime.utcnow()` -> timezone-aware UTC.
-- Added `pyproject.toml` (`dahua-console`, `dahua-eventviewer` commands), pytest suite with known-answer hash vectors captured from the original code, ruff, and GitHub Actions CI (Python 3.9 / 3.11 / 3.13).
+- Added `pyproject.toml` (`dahua-console`, `dahua-eventviewer` commands), pytest suite with known-answer hash vectors captured from the original code, ruff, and GitHub Actions CI (Python 3.10 / 3.11 / 3.13).
 
 New: `rpc` command (interactive) and `--dump rpc` (one-liner) call a single RPC method and print the reply,
 e.g. `--dump rpc --dump_argv 'devVideoAnalyse.getCaps {"channel":0}'`. Read-only methods only (get/list/is/check)

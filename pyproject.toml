@@ -9,7 +9,7 @@ description = "Dahua Debug Console"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "bashis" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "pwntools>=4.11",
     # pwntools pulls in unicorn (unused here). 2.1.2 has no Apple Silicon wheel and fails to compile
@@ -53,7 +53,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 # Catch real errors only (syntax, undefined names, bad comparisons); the legacy code relies on
