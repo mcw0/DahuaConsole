@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dahua-console"
 version = "0.2.0"
-description = "Dahua Debug Console - private modernised fork of mcw0/DahuaConsole"
+description = "Dahua Debug Console"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "bashis" }]

@@ -4,8 +4,7 @@
 - Bugs: Indeed
 - TODO: Lots of stuff
 
-> **Private modernised fork** of [mcw0/DahuaConsole](https://github.com/mcw0/DahuaConsole).
-> See "Fork changes (2026-11)" below.
+> See "Changes (2026-11)" below for what this update fixes and adds.
 
 [Install]
 ```text
@@ -52,7 +51,7 @@ Note: `--save` / `--multihost` read and write `dhConsole.json` in the **current 
   --calls               Debug internal calls
 ```
 ---
-## Fork changes (2026-11)
+## Changes (2026-11)
 
 Bug fixes
 - `method_banned`: a missing comma merged `magicBox.config` and `global.login` into one string, so neither was actually blocked.
