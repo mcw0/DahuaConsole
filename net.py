@@ -1,5 +1,4 @@
 import ast
-import ndjson
 import copy
 import inspect
 import _thread
@@ -450,8 +449,10 @@ sock.close()
             dh_data = self.send_call(query_args)
 
             users = '{}'.format(help_msg('Active Users'))
-            if dh_data.get('params').get('users') is not None:
-                for user in dh_data.get('params').get('users'):
+            # Newer firmware may refuse this call (e.g. non-admin accounts), returning False or no 'params'
+            active_users = ((dh_data or {}).get('params') or {}).get('users') if isinstance(dh_data, dict) else None
+            if active_users is not None:
+                for user in active_users:
                     users += '{}@{} since {} with "{}" (Id: {}) \n'.format(
                         user.get('Name'),
                         user.get('ClientAddress'),
@@ -481,16 +482,20 @@ sock.close()
             }
             dh_data = self.send_call(query_args, multicall=True, multicallsend=True)
 
-            self.DeviceClass = \
-                dh_data.get('magicBox.getDeviceClass').get('params').get('type') \
-                if dh_data and dh_data.get('magicBox.getDeviceClass').get('result') else '(null)'
-            self.DeviceType = \
-                dh_data.get('magicBox.getDeviceType').get('params').get('type')\
-                if dh_data and dh_data.get('magicBox.getDeviceType').get('result') else '(null)'
-            if dh_data and dh_data.get('global.getCurrentTime').get('params'):
-                remote_time = dh_data.get('global.getCurrentTime').get('params').get('time')
-            elif dh_data and dh_data.get('global.getCurrentTime').get('result'):
-                remote_time = dh_data.get('global.getCurrentTime').get('result')
+            if not isinstance(dh_data, dict):
+                dh_data = {}
+            device_class = dh_data.get('magicBox.getDeviceClass') or {}
+            device_type = dh_data.get('magicBox.getDeviceType') or {}
+            current_time = dh_data.get('global.getCurrentTime') or {}
+
+            self.DeviceClass = (device_class.get('params') or {}).get('type', '(null)') \
+                if device_class.get('result') else '(null)'
+            self.DeviceType = (device_type.get('params') or {}).get('type', '(null)') \
+                if device_type.get('result') else '(null)'
+            if current_time.get('params'):
+                remote_time = current_time.get('params').get('time')
+            elif current_time.get('result'):
+                remote_time = current_time.get('result')
             else:
                 remote_time = '(null)'
 
@@ -656,48 +661,49 @@ sock.close()
     def client_notify(self, dh_data):
         #
         # Some stuff prints sometimes 'garbage', like 'dvrip -l'
+        # The device may also batch several newline-delimited JSON messages into one packet;
+        # previously only the first was handled and the rest were silently dropped.
         #
-        dh_data = ndjson.loads(dh_data, strict=False)
+        if isinstance(dh_data, bytes):
+            dh_data = dh_data.decode('latin-1')
+        messages = []
+        for line in dh_data.splitlines():
+            if not line.strip():
+                continue
+            try:
+                messages.append(json.loads(line, strict=False))
+            except JSONDecodeError:
+                log.failure('[clientNotify] Malformed JSON: {}'.format(line))
 
-        for NUM in range(0, len(dh_data)):
-            dh_data = dh_data[NUM]
+        for dh_data in messages:
+            if not isinstance(dh_data, dict):
+                log.failure('[clientNotify] Unknown dh_data: {}'.format(dh_data))
+                continue
 
-            if dh_data.get('method') == 'client.notifyConsoleResult':
-                return self.console_result(msg=dh_data, callback=True)
+            method = dh_data.get('method')
 
-            elif dh_data.get('method') == 'client.notifyConsoleAsyncResult':
-                return self.console_result(msg=dh_data, callback=True)
+            if method in ('client.notifyConsoleResult', 'client.notifyConsoleAsyncResult'):
+                self.console_result(msg=dh_data, callback=True)
 
-            elif dh_data.get('method') == 'client.notifyDeviceInfo':
-                return self.device_discovery(msg=dh_data, callback=True)
+            elif method == 'client.notifyDeviceInfo':
+                self.device_discovery(msg=dh_data, callback=True)
 
-            elif dh_data.get('method') == 'client.notifyEventStream':
+            elif method == 'client.notifyEventStream':
 
                 if self.udp_server:
                     dh_data['host'] = self.rhost
-
-                    #
-                    # wifi also need events
-                    #
-                    # print('[2] netApp')
-                    # self.net_app(dh_data,callback=True)
                     #
                     # Send off to main event handler
                     #
                     notify_event = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
                     notify_event.sendto(json.dumps(dh_data).encode('latin-1'), ("127.0.0.1", EventInServerPort))
                     notify_event.close()
-            else:
-                try:
-                    if dh_data.get('method'):
-                        log.failure(color("[clientNotify] Unhandled callback: {}".format(dh_data.get('method')), RED))
-                        print(json.dumps(dh_data, indent=4))
 
-                except AttributeError:
-                    log.failure('[clientNotify] Unknown dh_data: {}'.format(dh_data))
-                    pass
+            elif method:
+                log.failure(color("[clientNotify] Unhandled callback: {}".format(method), RED))
+                print(json.dumps(dh_data, indent=4))
 
-            return True
+        return True
 
     def send_call(self, query_args=None, multicall=False, multicallsend=False, errorcodes=False, login=False):
         """ Primary function for sending/receiving data """

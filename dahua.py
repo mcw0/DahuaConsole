@@ -1,12 +1,23 @@
 import copy
+import re
 
-from Crypto.PublicKey import RSA
-from OpenSSL import crypto
 from pathlib import Path
+
+from cryptography import x509 as crypto_x509
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 """ Local imports """
 from utils import *
 from net import Network
+
+
+def x509_name(name):
+    """ Format an X.509 name like OpenSSL's one-line form, e.g. /C=CN/O=Dahua/CN=Root """
+    return ''.join(
+        '/{}={}'.format(attr.rfc4514_attribute_name, attr.value)
+        for rdn in name.rdns for attr in rdn
+    )
 
 
 class DahuaFunctions(Network):
@@ -573,7 +584,7 @@ class DahuaFunctions(Network):
             "magicBox.shutdown",
             "magicBox.reboot",
             "magicBox.resetSystem",
-            "magicBox.config"
+            "magicBox.config",
             "global.login",
             "global.logout",
             "global.keepAlive",
@@ -591,16 +602,12 @@ class DahuaFunctions(Network):
             "PerformanceMonitoring.attach"  # generates client.notifyPerformanceInfo() callback
         ]
 
-        try:
-            banned.index(msg)
+        if msg in banned:
             dh_data = help_msg('Banned Match')
             dh_data += '{}\n'.format(msg)
             log.info(dh_data)
-            # print('Banned Match: {}'.format(msg))
             return True
-        except ValueError as e:
-            print(repr(e))
-            return False
+        return False
 
     def fuzz_service(self, msg):
         """ Under development """
@@ -973,8 +980,12 @@ class DahuaFunctions(Network):
                     pub[1].split(":")[1],
                     pub[0].split(":")[1],
                 ))
-            pubkey = RSA.construct((int(pub[0].split(":")[1], 16), int(pub[1].split(":")[1], 16)))
-            print(pubkey.exportKey().decode('ascii'))
+            pubkey = rsa.RSAPublicNumbers(
+                e=int(pub[1].split(":")[1], 16), n=int(pub[0].split(":")[1], 16)
+            ).public_key()
+            print(pubkey.public_bytes(
+                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+            ).decode('ascii'))
 
     def get_remote_info(self, msg):
 
@@ -1070,9 +1081,7 @@ class DahuaFunctions(Network):
                 ca_cert = base64.decodebytes(
                     dh_data.get('CertManager.exportRootCert').get('params').get('cert').encode('latin-1')
                 )
-                x509 = crypto.load_certificate(crypto.FILETYPE_PEM, ca_cert)
-                # issuer = x509.get_issuer()
-                # subject = x509.get_subject()
+                x509 = crypto_x509.load_pem_x509_certificate(ca_cert)
 
                 log.success(
                     "\033[92m[\033[91mRoot Certificate\033[92m]\033[0m\n"
@@ -1081,15 +1090,19 @@ class DahuaFunctions(Network):
                     "\033[92m[\033[91mSubject\033[92m]\033[0m\n"
                     "{}\n"
                     "{}".format(
-                        str(x509.get_issuer()).split("'")[1],
-                        str(x509.get_subject()).split("'")[1],
+                        x509_name(x509.issuer),
+                        x509_name(x509.subject),
                         ca_cert.decode('latin-1'),
                     ))
 
                 log.success(
                     "\033[92m[\033[91mPublic Key\033[92m]\033[0m\n"
-                    "{}".format(crypto.dump_publickey(crypto.FILETYPE_PEM, x509.get_pubkey()).decode('latin-1')))
-                print('{:X}'.format(x509.get_pubkey().to_cryptography_key().public_numbers().n))
+                    "{}".format(x509.public_key().public_bytes(
+                        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+                    ).decode('latin-1')))
+                if isinstance(x509.public_key(), rsa.RSAPublicKey):
+                    # Only RSA keys have a modulus; newer firmware may use EC certificates
+                    print('{:X}'.format(x509.public_key().public_numbers().n))
             else:
                 log.failure(
                     "\033[92m[\033[91mRoot Certificate\033[92m]\033[0m\n{}".format(
@@ -2619,6 +2632,54 @@ class DahuaFunctions(Network):
 
     def dh_test(self, msg):
         return
+
+    def rpc(self, msg):
+        """
+        Call one remote RPC method and print the reply.
+        Read-only by default (get*/list*/is*/check*); other methods need --force. Banned methods are always refused.
+        Services that need an instance (factory.instance) are retried with one automatically.
+        """
+        cmd = msg.split(None, 2)
+
+        usage = {
+            "<service.method>": "[<JSON params>] (call one method and print the reply)",
+            "e.g.": "rpc devVideoAnalyse.getCaps {\"channel\":0}",
+        }
+        if len(cmd) < 2 or cmd[1] == '-h':
+            log.info('{}'.format(help_all(msg=msg, usage=usage)))
+            return True
+
+        method = cmd[1]
+        try:
+            params = json.loads(cmd[2]) if len(cmd) == 3 else None
+        except JSONDecodeError as e:
+            log.failure('[rpc] params must be JSON: {}'.format(e))
+            return False
+
+        verb = method.rsplit('.', 1)[-1]
+        if not re.match(r'(get|list|is|check)', verb) and not (self.args and self.args.force):
+            log.failure('[rpc] "{}" may change the device; restart with --force to allow it'.format(method))
+            return False
+        if self.method_banned(method):
+            return False
+
+        dh_data = self.send_call({"method": method, "params": params}, errorcodes=True)
+
+        # Some services only answer through an instance object; retry that way if the plain call failed
+        service = method.rsplit('.', 1)[0]
+        if (not dh_data or not dh_data.get('result')) and '.' in method \
+                and self.instance_service(service, start=True):
+            object_id = self.instance_service(service, pull='object')
+            if object_id:
+                dh_data = self.send_call(
+                    {"method": method, "params": params, "object": object_id}, errorcodes=True)
+            self.instance_service(service, stop=True)
+
+        if not dh_data:
+            log.failure('[rpc] {}: no reply'.format(method))
+            return False
+        print(json.dumps(dh_data, indent=4))
+        return True
 
     def user_manager(self, msg):
         """User management: only list users and show capabilities"""

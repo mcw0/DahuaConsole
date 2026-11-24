@@ -183,7 +183,7 @@ def binary_ip(host, endian="big"):
 	try:
 		""" Swap endianness if desired """
 		return p32(u32(socket.inet_aton(socket.gethostbyname(host)), endian="big" if endian == "little" else "little"))
-	except (Exception, KeyboardInterrupt, SystemExit) as e:
+	except Exception as e:  # don't swallow Ctrl-C / exit
 		return repr(e)
 
 
@@ -197,5 +197,5 @@ def unbinary_ip(host, endian="big"):
 		# Swap endianness if desired
 		host = p32(u32(host, endian="big" if endian == "little" else "little"))
 		return '.'.join(str(x) for x in [u8(host[i:i+1]) for i in range(0, len(host), 1)])
-	except (Exception, KeyboardInterrupt, SystemExit) as e:
+	except Exception as e:  # don't swallow Ctrl-C / exit
 		return repr(e)

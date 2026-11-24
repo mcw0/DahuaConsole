@@ -144,6 +144,10 @@ class DebugConsole(Servers):
                 'cmd': 'self.dh.reboot()',
                 'help': 'Try force reboot of remote',
             },
+            'rpc': {
+                'cmd': 'self.dh.rpc(msg)',
+                'help': 'Call one RPC method, read-only unless --force (-h for params)',
+            },
             'dh_test': {
                 'cmd': 'self.dh.dh_test(msg)',
                 'help': 'TEST function (-h for params)',
@@ -203,8 +207,8 @@ class DebugConsole(Servers):
                         rhost=self.dargs.rhost if self.dargs.auth else dh_data.get('host'),
                         rport=self.dargs.rport if self.dargs.auth else dh_data.get('port'),
                         proto=self.dargs.proto if self.dargs.auth else dh_data.get('proto'),
-                        username=self.dargs.auth.split(':')[0] if self.dargs.auth else None,
-                        password=self.dargs.auth.split(':')[1] if self.dargs.auth else None,
+                        username=self.dargs.auth.split(':', 1)[0] if self.dargs.auth else None,
+                        password=self.dargs.auth.split(':', 1)[1] if self.dargs.auth else None,
                         events=self.dargs.events if self.dargs.auth else dh_data.get('events'),
                         ssl=self.dargs.ssl,
                         relay_host=self.dargs.relay if self.dargs.auth else dh_data.get('relay'),
@@ -290,9 +294,12 @@ class DebugConsole(Servers):
             except EOFError as e:
                 print('[Console]', repr(e))
                 return False
-#            except Exception as e:
-#                print('[Console]', repr(e))
-#                pass
+            except Exception as e:
+                # Keep the console alive on unexpected errors (e.g. malformed device replies)
+                log.failure('[Console] {}'.format(repr(e)))
+                if self.dargs.debug or self.dargs.ddebug:
+                    import traceback
+                    traceback.print_exc()
 
     @staticmethod
     def memory_info():
@@ -339,48 +346,60 @@ class DebugConsole(Servers):
                 rhost=self.dargs.rhost,
                 rport=self.dargs.rport,
                 proto=self.dargs.proto,
-                username=self.dargs.auth.split(':')[0] if self.dargs.auth else None,
-                password=self.dargs.auth.split(':')[1] if self.dargs.auth else None,
+                username=self.dargs.auth.split(':', 1)[0] if self.dargs.auth else None,
+                password=self.dargs.auth.split(':', 1)[1] if self.dargs.auth else None,
                 events=self.dargs.events,
                 ssl=self.dargs.ssl,
                 relay_host=self.dargs.relay,
                 logon=self.dargs.logon,
                 timeout=5
         ):
-            return None
+            return False
 
         if self.dargs.test:
             self.dh.dh_test('test')
-            return None
+        return True
 
     def dump(self):
-        self.connect()
+        if not self.connect() or not self.dh:
+            log.failure('Could not connect to {}:{}'.format(self.dargs.rhost, self.dargs.rport))
+            return None
+        if self.dargs.test and not self.dargs.dump:
+            self.dh.logout()
+            return None
         if self.dargs.dump == 'config':
             self.dh.config_members("{} {}".format("config", self.dargs.dump_argv if self.dargs.dump_argv else "all"))
             self.dh.logout()
             return None
         elif self.dargs.dump == 'service':
-            self.dh.listService("{} {}".format("service", self.dargs.dump_argv if self.dargs.dump_argv else "all"))
+            self.dh.list_service("{} {}".format("service", self.dargs.dump_argv if self.dargs.dump_argv else "all"))
             self.dh.logout()
             return None
         elif self.dargs.dump == 'device':
-            self.dh.getRemoteInfo('device')
+            self.dh.get_remote_info('device')
             self.dh.logout()
             return None
         elif self.dargs.dump == 'discover':
-            self.dh.deviceDiscovery("{} {}".format("discover", self.dargs.dump_argv))
+            # Without --dump_argv, show the discovery usage rather than sending 'None' as a sub-command
+            self.dh.device_discovery("{} {}".format("rdiscover", self.dargs.dump_argv if self.dargs.dump_argv else "-h"))
             self.dh.logout()
             return None
         elif self.dargs.dump == 'test':
             self.dh.dh_test('test')
             self.dh.logout()
             return None
-        elif self.dargs.dump == 'dlog':
-            self.dh.dlog('test')
+        elif self.dargs.dump == 'rpc':
+            # e.g. --dump rpc --dump_argv 'devVideoAnalyse.getCaps {"channel":0}'
+            self.dh.rpc("rpc {}".format(self.dargs.dump_argv or "-h"))
+            self.dh.logout()
+            return None
+        elif self.dargs.dump == 'log':
+            # --dump_argv optionally sets how many log entries to fetch (default 20)
+            self.dh.dlog("dlog {}".format(self.dargs.dump_argv) if self.dargs.dump_argv else "dlog")
             self.dh.logout()
             return None
         else:
-            log.error('No such dump: {}'.format(self.dargs.dump))
+            log.failure('No such dump: {}'.format(self.dargs.dump))
             return None
 
     def quit_host(self, quit_all=False, msg=None):
@@ -763,6 +782,7 @@ def main():
         'device',
         'discover',
         'log',
+        'rpc',
         'test'
     ]
 
